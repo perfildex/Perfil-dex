@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Acampamento DEX — Análise de Perfil</title>
   <meta name="description" content="Acampamento DEX — Análise de Perfil Comportamental (Comunicador, Executor, Planejador, Analista) com Painel do Líder." />
-  <!-- React & dependencies via CDN (GitHub Pages online) -->
+  <!-- React & Recharts via CDN -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/recharts/umd/Recharts.min.js"></script>
@@ -14,10 +14,12 @@
       --pine:#1D3B2A; --sage:#6B8C7B; --cream:#C8C5B8; --deep:#3F5C4E;
       --judah:#FFD700; --manasses:#87CEFA; --ruben:#FF4500; --benjamim:#9370DB;
     }
-    *{box-sizing:border-box} body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#fff,var(--cream));color:#111}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#fff,var(--cream));color:#111}
     header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.85);backdrop-filter:saturate(180%) blur(6px);border-bottom:1px solid #e5e5e5}
     .wrap{max-width:1100px;margin:0 auto;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
     .brand{display:flex;gap:10px;align-items:center}
+    .logoCircle{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--pine);color:#FFD700;font-weight:800;letter-spacing:1px}
     .brand h1{margin:0;font-size:18px;color:var(--pine)}
     .brand p{margin:2px 0 0;color:var(--deep);font-size:12px}
     .tabs{display:flex;flex-wrap:wrap;gap:8px}
@@ -42,15 +44,18 @@
     .dot{width:10px;height:10px;border-radius:50%;background:#00000033}
     .table{width:100%;border-collapse:collapse}
     .table th,.table td{padding:8px;border-bottom:1px solid #eee;text-align:left}
-    footer{border-top:1px solid #e5e5e5;padding:16px;color:var(--deep);text-align:center}
+    footer{border-top:1px solid #e5e5e5;padding:16px;color:#deep;text-align:center}
     @media print{ header,footer,button,input,select{display:none!important} .card{box-shadow:none} }
+
+    /* Segurança extra: se algum rótulo vier com text-transform uppercase, esconda-o */
+    p[style*="text-transform: uppercase"] { display: none !important; }
   </style>
 </head>
 <body>
   <header>
     <div class="wrap">
       <div class="brand">
-        <img src="assets/logo-dex.jpg" alt="Logo DEX" width="44" height="44" style="border-radius:50%;object-fit:cover">
+        <div class="logoCircle">DEX</div>
         <div>
           <h1>Acampamento DEX — Análise de Perfil</h1>
           <p>Autoconhecimento para servir melhor e viver a missão.</p>
@@ -99,6 +104,14 @@
       { id:"C5", trait:"Analista", text:"Prefiro processos bem definidos ao improviso."},
       { id:"C6", trait:"Analista", text:"Tenho senso crítico e zelo pela excelência."},
     ];
+
+    /* Embaralhar perguntas uma única vez a cada carregamento (Fisher–Yates) */
+    (function shuffleQUESTIONS(){
+      for (let i = QUESTIONS.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [QUESTIONS[i], QUESTIONS[j]] = [QUESTIONS[j], QUESTIONS[i]];
+      }
+    })();
 
     function computeScores(answers){
       const totals = { Comunicador:0, Executor:0, Planejador:0, Analista:0 };
@@ -189,7 +202,7 @@
             React.createElement("div",{className:"grid"},
               QUESTIONS.map((q,i)=> React.createElement("div",{key:q.id,className:"card",style:{borderColor:"#eee"}},
                 React.createElement("div",{className:"bd"},
-                  React.createElement("p",{className:"muted",style:{textTransform:"uppercase"}},q.trait),
+                  /* OBS: rótulo de perfil REMOVIDO de propósito para evitar influência */
                   React.createElement("p",null, (i+1)+". "+q.text),
                   React.createElement("div",{className:"likert row"},
                     [1,2,3,4,5].map(v=> React.createElement("button",{key:v,className: (answers[q.id]===v)?"active":"", onClick:()=>setAnswer(q.id,v)},v))
@@ -219,7 +232,7 @@
         const cover = document.createElement('div');
         cover.id='dex-cover';
         cover.innerHTML = `<div style="height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--cream);color:var(--pine);padding:40px;text-align:center">
-          <img src="assets/logo-dex.jpg" alt="DEX" style="width:140px;height:140px;border-radius:50%;object-fit:cover;border:4px solid var(--pine)"/>
+          <div style="width:140px;height:140px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--pine);color:#FFD700;font-weight:800;letter-spacing:1px;font-size:40px;border:4px solid var(--pine)">DEX</div>
           <h1 style="font-size:28px;margin:16px 0 4px">Relatório de Perfil — Acampamento DEX</h1>
           <p style="font-size:14px;margin:0 0 12px">Participante: <strong>${name||'—'}</strong></p>
           <p style="font-size:12px;margin:0">Gerado em ${new Date().toLocaleString()}</p>
@@ -472,7 +485,7 @@
             React.createElement("table",{className:"table"},
               React.createElement("thead",null, React.createElement("tr",null,
                 React.createElement("th",null,"Nome"), React.createElement("th",null,"Contexto"), React.createElement("th",null,"Tribo"), React.createElement("th",null,"Perfil"),
-                TRAITS.map(p=> React.createElement("th",{key:p},"%",' ',p))
+                TRAITS.map(p=> React.createElement("th",{key:p},"% ",p))
               )),
               React.createElement("tbody",null,
                 filtered.map(r => React.createElement("tr",{key:r.id},
