@@ -1,525 +1,76 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Acampamento DEX — Análise de Perfil</title>
-  <meta name="description" content="Acampamento DEX — Análise de Perfil Comportamental (Comunicador, Executor, Planejador, Analista) com Painel do Líder." />
-  <!-- React & Recharts via CDN -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/recharts/umd/Recharts.min.js"></script>
-  <style>
-    :root{
-      --pine:#1D3B2A; --sage:#6B8C7B; --cream:#C8C5B8; --deep:#3F5C4E;
-      --judah:#FFD700; --manasses:#87CEFA; --ruben:#FF4500; --benjamim:#9370DB;
-    }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#fff,var(--cream));color:#111}
-    header{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.85);backdrop-filter:saturate(180%) blur(6px);border-bottom:1px solid #e5e5e5}
-    .wrap{max-width:1100px;margin:0 auto;padding:12px 16px;display:flex;justify-content:space-between;align-items:center}
-    .brand{display:flex;gap:10px;align-items:center}
-    .logoCircle{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--pine);color:#FFD700;font-weight:800;letter-spacing:1px}
-    .brand h1{margin:0;font-size:18px;color:var(--pine)}
-    .brand p{margin:2px 0 0;color:var(--deep);font-size:12px}
-    .tabs{display:flex;flex-wrap:wrap;gap:8px}
-    .btn{border:1px solid var(--pine);color:var(--pine);background:#fff;border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
-    .btn.active{background:var(--pine);color:#fff}
-    .btn.ghost{border-color:#ddd;color:#333}
-    main{padding:24px 16px}
-    .grid{display:grid;gap:16px}
-    @media(min-width:900px){.grid.cols-2{grid-template-columns:1fr 1fr}}
-    .card{border:1px solid #e6e6e6;border-radius:14px;background:#fff;box-shadow:0 1px 6px rgba(0,0,0,.03)}
-    .card .hd{padding:12px 16px;border-bottom:1px solid #eee;background:var(--pine);color:#fff;border-radius:14px 14px 0 0}
-    .card .bd{padding:16px}
-    .muted{color:#555}
-    .field{display:flex;flex-direction:column;gap:6px}
-    input, select{padding:8px 10px;border:1px solid #d4d4d4;border-radius:8px}
-    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    .likert button{height:36px;width:36px;border-radius:50%;border:1px solid #ccc;background:#fff;font-weight:600}
-    .likert button.active{background:var(--pine);color:#fff;border-color:var(--pine)}
-    .progress{height:8px;background:#eee;border-radius:6px;overflow:hidden}
-    .progress>div{height:8px;background:var(--pine)}
-    .badge{display:inline-flex;align-items:center;gap:8px;padding:4px 8px;border-radius:999px;border:1px solid #00000022}
-    .dot{width:10px;height:10px;border-radius:50%;background:#00000033}
-    .table{width:100%;border-collapse:collapse}
-    .table th,.table td{padding:8px;border-bottom:1px solid #eee;text-align:left}
-    footer{border-top:1px solid #e5e5e5;padding:16px;color:var(--deep);text-align:center}
-    @media print{ header,footer,button,input,select{display:none!important} .card{box-shadow:none} }
-  </style>
-</head>
-<body>
-  <header>
-    <div class="wrap">
-      <div class="brand">
-        <div class="logoCircle">DEX</div>
-        <div>
-          <h1>Acampamento DEX — Análise de Perfil</h1>
-          <p>Autoconhecimento para servir melhor e viver a missão.</p>
-        </div>
-      </div>
-      <div class="tabs" id="tabs"></div>
-    </div>
-  </header>
-  <main>
-    <div id="app"></div>
-  </main>
-  <footer>Acampamento DEX — identidade visual aplicada. Use com responsabilidade e espírito de serviço.</footer>
+const SHEET_ID  = 'COLE_AQUI_O_ID_DA_SUA_PLANILHA';
+const SHEET_NAME = 'respostas';
 
-  <script>
-    const e = React.createElement;
-    const { useState, useMemo, useEffect } = React;
-    const Recharts = window.Recharts;
-    const TRAITS = ["Comunicador","Executor","Planejador","Analista"];
-    const PROFILE_COLORS = ["#4C78A8","#F58518","#54A24B","#B279A2"];
-    const TRIBE_COLORS = { "Judá":"var(--judah)", "Manassés":"var(--manasses)", "Rúben":"var(--ruben)", "Benjamim":"var(--benjamim)" };
-    const STORAGE_KEY = "perfil-dex-unificado-v1";
+function ensureHeader_(sh) {
+  if (sh.getLastRow() === 0) {
+    sh.appendRow([
+      'timestamp','name','context','tribe','devotional','top',
+      'perc_Comunicador','perc_Executor','perc_Planejador','perc_Analista',
+      'answers_json','generatedAt'
+    ]);
+  }
+}
 
-    const QUESTIONS = [
-      { id:"D1", trait:"Executor", text:"Prefiro decidir rápido e ajustar no caminho."},
-      { id:"D2", trait:"Executor", text:"Sinto-me motivado(a) por metas ousadas e desafios."},
-      { id:"D3", trait:"Executor", text:"Assumo a liderança quando o grupo hesita."},
-      { id:"D4", trait:"Executor", text:"Falo de forma direta, sem muitos rodeios."},
-      { id:"D5", trait:"Executor", text:"Não temo conflitos quando a verdade precisa ser dita."},
-      { id:"D6", trait:"Executor", text:"Gosto de medir resultados e cobrar entregas."},
-      { id:"I1", trait:"Comunicador", text:"Animo o ambiente e conecto facilmente com pessoas."},
-      { id:"I2", trait:"Comunicador", text:"Gosto de contar histórias e engajar pela inspiração."},
-      { id:"I3", trait:"Comunicador", text:"Sou persuasivo(a) e sei motivar o grupo."},
-      { id:"I4", trait:"Comunicador", text:"Prefiro novidades e variedade a rotinas rígidas."},
-      { id:"I5", trait:"Comunicador", text:"Sinto-me bem ao falar em público ou liderar encontros."},
-      { id:"I6", trait:"Comunicador", text:"Valorizo reconhecimento e celebrações."},
-      { id:"S1", trait:"Planejador", text:"Prezo pela paz do ambiente e pela harmonia do grupo."},
-      { id:"S2", trait:"Planejador", text:"Sou paciente, constante e confiável nas entregas."},
-      { id:"S3", trait:"Planejador", text:"Gosto de ajudar e ouvir antes de agir."},
-      { id:"S4", trait:"Planejador", text:"Prefiro mudanças graduais a rupturas bruscas."},
-      { id:"S5", trait:"Planejador", text:"Sigo rotinas e mantenho compromissos com facilidade."},
-      { id:"S6", trait:"Planejador", text:"Sou leal ao time e mantenho a serenidade em crises."},
-      { id:"C1", trait:"Analista", text:"Sou detalhista e busco precisão no que faço."},
-      { id:"C2", trait:"Analista", text:"Gosto de normas claras e padrões de qualidade."},
-      { id:"C3", trait:"Analista", text:"Antes de decidir, busco dados e evidências."},
-      { id:"C4", trait:"Analista", text:"Reviso meu trabalho para reduzir erros."},
-      { id:"C5", trait:"Analista", text:"Prefiro processos bem definidos ao improviso."},
-      { id:"C6", trait:"Analista", text:"Tenho senso crítico e zelo pela excelência."},
-    ];
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents || '{}');
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sh = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
+    ensureHeader_(sh);
 
-    function computeScores(answers){
-      const totals = { Comunicador:0, Executor:0, Planejador:0, Analista:0 };
-      let sum = 0;
-      for(const q of QUESTIONS){ const v = Number(answers[q.id]||0); sum += v; totals[q.trait]+=v; }
-      const percentages = Object.fromEntries(Object.entries(totals).map(([k,val]) => [k, sum? (val/sum)*100 : 0]));
-      const top = Object.entries(percentages).sort((a,b)=>b[1]-a[1])[0]?.[0] || "Comunicador";
-      return { totals, percentages, top, sum };
-    }
+    const p = data.percentages || {};
+    sh.appendRow([
+      new Date(),
+      data.name || '',
+      data.context || '',
+      data.tribe || '',
+      data.devotional ? '1' : '0',
+      data.top || '',
+      Number(p.Comunicador) || 0,
+      Number(p.Executor) || 0,
+      Number(p.Planejador) || 0,
+      Number(p.Analista) || 0,
+      JSON.stringify(data.answers || {}),
+      data.generatedAt || new Date().toISOString()
+    ]);
 
-    function Tabs({step,setStep}){
-      const tabs = [["intro","Início"],["form","Avaliar"],["result","Resultado"],["sobre","Sobre"],["lider","Líder"]];
-      return React.createElement(React.Fragment,null,
-        tabs.map(([k,label]) =>
-          React.createElement("button",{key:k,className:"btn"+(step===k?" active":""),onClick:()=>setStep(k)},label)
-        )
-      );
-    }
+    return ContentService.createTextOutput(
+      JSON.stringify({ ok: true })
+    ).setMimeType(ContentService.MimeType.JSON);
 
-    function Intro({begin}){
-      return React.createElement("section",{className:"grid cols-2"},
-        React.createElement("div",null,
-          React.createElement("h2",{style:{color:"var(--pine)"}}, "Conheça seu jeito de servir, com fé e propósito."),
-          React.createElement("p",{className:"muted"},"Instrumento adaptado para o Acampamento DEX com quatro perfis clássicos."),
-          React.createElement("ul",{className:"muted"},
-            React.createElement("li",null,"• 5–7 minutos."),
-            React.createElement("li",null,"• Escala de 1 a 5."),
-            React.createElement("li",null,"• Resultado com gráfico, forças, pontos de atenção e dicas pastorais.")
-          ),
-          React.createElement("div",{className:"row"},
-            React.createElement("button",{className:"btn active",onClick:begin},"Começar agora →")
-          )
-        ),
-        React.createElement("div",null,
-          React.createElement("div",{className:"card"},
-            React.createElement("div",{className:"hd"},"Princípios do Acampamento DEX"),
-            React.createElement("div",{className:"bd muted"},
-              React.createElement("p",null,React.createElement("strong",null,"Serviço com amor:")," todo dom recebido é para edificação da Igreja."),
-              React.createElement("p",null,React.createElement("strong",null,"Comunhão:")," perfis diferentes, um só Corpo."),
-              React.createElement("p",null,React.createElement("strong",null,"Missão:")," excelência simples, para Deus e para as pessoas.")
-            )
-          )
-        )
-      );
-    }
+  } catch (err) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ ok: false, error: String(err) })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
 
-    function Form({state,setState,goResult}){
-      const { name="", context="Acampamento DEX", tribe="", devotional=false, answers={} } = state;
-      const done = Object.keys(answers).length;
-      const progress = Math.round(done / QUESTIONS.length * 100);
-      function setAnswer(id,v){ setState(s=>({ ...s, answers:{...s.answers,[id]:v} })); }
-      return React.createElement("section",null,
-        React.createElement("div",{className:"card"},
-          React.createElement("div",{className:"hd"},"Identificação"),
-          React.createElement("div",{className:"bd grid cols-2"},
-            React.createElement("div",{className:"field"},
-              React.createElement("label",null,"Nome (opcional)"),
-              React.createElement("input",{value:name,onChange:e=>setState(s=>({...s,name:e.target.value}))})
-            ),
-            React.createElement("div",{className:"field"},
-              React.createElement("label",null,"Contexto (ex.: tribo/equipe)"),
-              React.createElement("input",{value:context,onChange:e=>setState(s=>({...s,context:e.target.value}))})
-            ),
-            React.createElement("div",{className:"field"},
-              React.createElement("label",null,"Tribo (obrigatório)"),
-              React.createElement("select",{value:tribe,onChange:e=>setState(s=>({...s,tribe:e.target.value}))},
-                React.createElement("option",{value:""},"Selecione…"),
-                Object.keys(TRIBE_COLORS).map(t=> React.createElement("option",{key:t,value:t},t))
-              )
-            ),
-            React.createElement("div",{className:"field row"},
-              React.createElement("input",{type:"checkbox",checked:devotional,onChange:e=>setState(s=>({...s,devotional:e.target.checked}))}),
-              React.createElement("label",null,'Ativar "Modo Inspiração"')
-            ),
-          )
-        ),
-        React.createElement("div",{style:{height:12}}),
-        React.createElement("div",{className:"card"},
-          React.createElement("div",{className:"hd"},"Questionário"),
-          React.createElement("div",{className:"bd"},
-            React.createElement("div",{className:"row",style:{justifyContent:"space-between"}},
-              React.createElement("div",null,React.createElement("p",{className:"muted"},"1 = discordo • 5 = concordo plenamente.")),
-              React.createElement("div",{style:{minWidth:160}},
-                React.createElement("div",{className:"progress"}, React.createElement("div",{style:{width:progress+'%'}})),
-                React.createElement("p",{className:"muted",style:{textAlign:"right",marginTop:6}}, done,"/",QUESTIONS.length," concluídas")
-              )
-            ),
-            React.createElement("div",{className:"grid"},
-              QUESTIONS.map((q,i)=> React.createElement("div",{key:q.id,className:"card",style:{borderColor:"#eee"}},
-                React.createElement("div",{className:"bd"},
-                  React.createElement("p",{className:"muted",style:{textTransform:"uppercase"}},q.trait),
-                  React.createElement("p",null, (i+1)+". "+q.text),
-                  React.createElement("div",{className:"likert row"},
-                    [1,2,3,4,5].map(v=> React.createElement("button",{key:v,className: (answers[q.id]===v)?"active":"", onClick:()=>setAnswer(q.id,v)},v))
-                  )
-                )
-              ))
-            ),
-            React.createElement("div",{className:"row",style:{justifyContent:"space-between",marginTop:12}},
-              React.createElement("button",{className:"btn",onClick:()=>setState({name:"",context:"Acampamento DEX",tribe:"",devotional:false,answers:{}})},"Limpar respostas"),
-              React.createElement("button",{className:"btn active", disabled: done<QUESTIONS.length || !tribe, onClick:goResult},"Ver resultado →")
-            )
-          )
-        ),
-        React.createElement("p",{className:"muted",style:{textAlign:"center",fontSize:12,marginTop:10}},"Aviso: instrumento de autoconhecimento; não substitui avaliação clínica ou psicológica profissional.")
-      );
-    }
+function doGet(e) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sh = ss.getSheetByName(SHEET_NAME);
+  if (!sh) {
+    return ContentService.createTextOutput('[]')
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  const values = sh.getDataRange().getValues();
+  const header = values.shift(); // remove cabeçalho
+  const idx = Object.fromEntries(header.map((h,i)=>[h,i]));
+  const out = values.map(r => ({
+    timestamp: r[idx.timestamp] ? new Date(r[idx.timestamp]).toISOString() : '',
+    name: r[idx.name] || '',
+    context: r[idx.context] || '',
+    tribe: r[idx.tribe] || '',
+    devotional: r[idx.devotional] === '1',
+    top: r[idx.top] || '',
+    perc_Comunicador: Number(r[idx.perc_Comunicador]) || 0,
+    perc_Executor: Number(r[idx.perc_Executor]) || 0,
+    perc_Planejador: Number(r[idx.perc_Planejador]) || 0,
+    perc_Analista: Number(r[idx.perc_Analista]) || 0,
+    answers_json: r[idx.answers_json] || '',
+    generatedAt: r[idx.generatedAt] || ''
+  }));
 
-    function Result({state,setStep}){
-      const { name="", context="", tribe="", devotional=false, answers={} } = state;
-      const { percentages, top } = useMemo(()=>computeScores(answers), [answers]);
-      const pieData = TRAITS.map((t,i)=>({ name:t, value:Number(percentages[t]||0), fill:PROFILE_COLORS[i]}));
-      function downloadJSON(){
-        const blob = new Blob([JSON.stringify({ name, context, tribe, devotional, percentages, answers }, null, 2)], {type:'application/json'});
-        const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download = `perfil-${name||'usuario'}.json`; a.click(); URL.revokeObjectURL(url);
-      }
-      function exportPDF(){
-        const cover = document.createElement('div');
-        cover.id='dex-cover';
-        cover.innerHTML = `<div style="height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--cream);color:var(--pine);padding:40px;text-align:center">
-          <div style="width:140px;height:140px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--pine);color:#FFD700;font-weight:800;letter-spacing:1px;font-size:40px;border:4px solid var(--pine)">DEX</div>
-          <h1 style="font-size:28px;margin:16px 0 4px">Relatório de Perfil — Acampamento DEX</h1>
-          <p style="font-size:14px;margin:0 0 12px">Participante: <strong>${name||'—'}</strong></p>
-          <p style="font-size:12px;margin:0">Gerado em ${new Date().toLocaleString()}</p>
-        </div>`;
-        document.body.prepend(cover); window.print(); cover.remove();
-      }
-      return React.createElement("section",{style:{backgroundColor: tribe? (TRIBE_COLORS[tribe]+'22') : undefined}},
-        React.createElement("div",{className:"card"},
-          React.createElement("div",{className:"hd"},"Resumo do Resultado"),
-          React.createElement("div",{className:"bd"},
-            React.createElement("div",{className:"grid cols-2"},
-              React.createElement("div",null,
-                React.createElement("div",{className:"grid",style:{gridTemplateColumns:'1fr 1fr',gap:10}},
-                  TRAITS.map((t)=> React.createElement("div",{key:t, className:"card"}, React.createElement("div",{className:"bd row",style:{justifyContent:"space-between"}}, React.createElement("span",null,t), React.createElement("strong",null, (Number(percentages[t]||0)).toFixed(1),'%'))))
-                )
-              ),
-              React.createElement("div",null,
-                React.createElement(Recharts.ResponsiveContainer,{width:"100%",height:220},
-                  React.createElement(Recharts.PieChart,null,
-                    React.createElement(Recharts.Pie,{data:pieData,dataKey:"value",nameKey:"name",outerRadius:90,innerRadius:45},
-                      pieData.map((d,i)=> React.createElement(Recharts.Cell,{key:i,fill:d.fill}))
-                    ),
-                    React.createElement(Recharts.Tooltip,null),
-                    React.createElement(Recharts.Legend,null)
-                  )
-                )
-              )
-            ),
-            React.createElement("p",{className:"muted",style:{fontSize:12}},"Percentuais calculados com base na sua autoavaliação.")
-          )
-        ),
-        React.createElement("div",{style:{height:12}}),
-        React.createElement("div",{className:"card"},
-          React.createElement("div",{className:"hd"},"Perfil Predominante"),
-          React.createElement("div",{className:"bd"},
-            React.createElement("div",{className:"card",style:{borderColor:"var(--pine)",background:"var(--cream)"}},
-              React.createElement("div",{className:"bd"},
-                React.createElement("h3",null, top),
-                React.createElement("p",{className:"muted"}, ({
-                  Comunicador:"Influência que inspira e conecta.",
-                  Executor:"Coragem para decidir e fazer acontecer.",
-                  Planejador:"Constância, harmonia e presença fiel.",
-                  Analista:"Excelência, clareza e fidelidade ao método."
-                })[top] )
-              )
-            ),
-            React.createElement("div",{className:"grid"},
-              React.createElement("section",null, React.createElement("h4",null,"Forças"), React.createElement("ul",{className:"muted"},
-                ({
-                  Comunicador:["Carisma e entusiasmo","Engaja e comunica visões","Criatividade e otimismo"],
-                  Executor:["Foco em metas","Decide com rapidez","Iniciativa e liderança"],
-                  Planejador:["Estabilidade emocional","Escuta e suporte","Compromisso com rotinas"],
-                  Analista:["Rigor técnico","Planejamento minucioso","Decisão fundamentada"]
-                })[top].map((t,i)=> React.createElement("li",{key:i},t))
-              )),
-              React.createElement("section",null, React.createElement("h4",null,"Pontos de atenção"), React.createElement("ul",{className:"muted"},
-                ({
-                  Comunicador:["Evitar dispersão","Equilibrar fala e escuta","Atenção a prazos"],
-                  Executor:["Dominar impaciência","Incluir o time","Cuidar das pessoas"],
-                  Planejador:["Vencer resistência a mudanças","Não absorver tensões","Assertividade"],
-                  Analista:["Evitar paralisia","Comunicar com simplicidade","Não atrasar o necessário"]
-                })[top].map((t,i)=> React.createElement("li",{key:i},t))
-              )),
-              React.createElement("section",null, React.createElement("h4",null,"Dicas de desenvolvimento"), React.createElement("ul",{className:"muted"},
-                ({
-                  Comunicador:["Pontos-chave","Indicadores simples","Momentos de silêncio"],
-                  Executor:["Feedbacks breves","Reservas de revisão","Celebre conquistas"],
-                  Planejador:["Mudanças incrementais","Checklists","Prioridades semanais"],
-                  Analista:["Critérios de 'bom o suficiente'","Compartilhe aprendizados","Alinhe expectativas"]
-                })[top].map((t,i)=> React.createElement("li",{key:i},t))
-              ))
-            ),
-            React.createElement("div",{className:"row",style:{marginTop:12}},
-              React.createElement("button",{className:"btn active",onClick:exportPDF},"Exportar PDF (capa)"),
-              React.createElement("button",{className:"btn",onClick:downloadJSON},"Baixar JSON"),
-              React.createElement("button",{className:"btn",onClick:()=>setStep('form')},"← Ajustar respostas")
-            ),
-            React.createElement("div",{className:"muted",style:{marginTop:8}},
-              name && React.createElement("p",null,React.createElement("strong",null,"Participante: "),' ',name),
-              context && React.createElement("p",null,React.createElement("strong",null,"Contexto: "),' ',context),
-              tribe && React.createElement("p",null, React.createElement("strong",null,"Tribo: "),' ', React.createElement("span",{className:"badge",style:{backgroundColor:TRIBE_COLORS[tribe]}}, React.createElement("span",{className:"dot"}), tribe) )
-            )
-          )
-        )
-      );
-    }
-
-    function guessTribe(context=""){
-      const txt = context.normalize("NFD").replace(/\p{Diacritic}/gu,"").toLowerCase();
-      if(/juda/.test(txt)) return "Judá";
-      if(/manasses/.test(txt)) return "Manassés";
-      if(/ruben/.test(txt)) return "Rúben";
-      if(/benjamim/.test(txt)) return "Benjamim";
-      return "";
-    }
-
-    function LeaderPanel(){
-      const [rows,setRows] = useState([]);
-      const [tribeFilter,setTribeFilter] = useState("");
-      const [profileFilter,setProfileFilter] = useState("");
-      const [search,setSearch] = useState("");
-
-      const filtered = useMemo(()=> rows.filter(r =>
-        (!tribeFilter || r.tribe===tribeFilter) &&
-        (!profileFilter || r.top===profileFilter) &&
-        (!search || (r.name+' '+r.context).toLowerCase().includes(search.toLowerCase()))
-      ), [rows,tribeFilter,profileFilter,search]);
-
-      const summaryByTribe = useMemo(()=>{
-        const base = ["Judá","Manassés","Rúben","Benjamim"].map(t=>({tribe:t,total:0,Comunicador:0,Executor:0,Planejador:0,Analista:0}));
-        const m = Object.fromEntries(base.map(b=>[b.tribe,b]));
-        for(const r of filtered){ if(!m[r.tribe]) continue; m[r.tribe].total++; if(r.top) m[r.tribe][r.top]=(m[r.tribe][r.top]||0)+1; }
-        return base;
-      },[filtered]);
-
-      const pizzaPerfis = useMemo(()=>{
-        const cnt = { Comunicador:0, Executor:0, Planejador:0, Analista:0 };
-        for(const r of filtered) cnt[r.top]+=1;
-        return TRAITS.map((p,i)=>({ name:p, value:cnt[p], fill:PROFILE_COLORS[i]}));
-      },[filtered]);
-
-      async function readFiles(files){
-        if(!files) return;
-        const added = [];
-        for(const f of Array.from(files)){
-          try{
-            const text = await f.text();
-            const data = JSON.parse(text);
-            const arr = Array.isArray(data)? data : [data];
-            for(const item of arr){
-              const name = String(item.name??"");
-              const context = String(item.context??"");
-              const tribe = item.tribe || guessTribe(context);
-              const percentages = item.percentages || {};
-              const top = Object.entries(percentages).sort((a,b)=>Number(b[1])-Number(a[1]))[0]?.[0] || "Comunicador";
-              added.push({ id:crypto.randomUUID(), name, context, tribe, top, percentages });
-            }
-          }catch(e){ console.error("Falha ao ler", f.name, e); }
-        }
-        setRows(prev => [...prev, ...added]);
-      }
-
-      function exportCSV(){
-        const headers = ["Nome","Contexto","Tribo","PerfilPredominante", ...TRAITS.map(p=>`%${p}`)];
-        const lines = filtered.map(r => [
-          r.name, r.context, r.tribe, r.top, ...TRAITS.map(p => (r.percentages?.[p]??0).toFixed(2))
-        ].map(v => String(v).replaceAll('"','""')));
-        const csv = [headers,...lines].map(cols=>cols.map(c=>`"${c}"`).join(",")).join("\n");
-        const blob = new Blob([csv],{type:"text/csv;charset=utf-8;"}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`DEX_resultados_${new Date().toISOString().slice(0,10)}.csv`; a.click(); URL.revokeObjectURL(url);
-      }
-
-      function exportPDF(){
-        const total = summaryByTribe.reduce((acc,t)=>acc + (t.total||0), 0);
-        const rowsHtml = summaryByTribe.map(t=>`<tr>
-          <td style="padding:6px 8px;border:1px solid #ddd">${t.tribe}</td>
-          <td style="padding:6px 8px;border:1px solid #ddd">${t.total}</td>
-          <td style="padding:6px 8px;border:1px solid #ddd">${t.Comunicador}</td>
-          <td style="padding:6px 8px;border:1px solid #ddd">${t.Executor}</td>
-          <td style="padding:6px 8px;border:1px solid #ddd">${t.Planejador}</td>
-          <td style="padding:6px 8px;border:1px solid #ddd">${t.Analista}</td>
-        </tr>`).join('');
-        const html = `<div style="padding:32px;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
-          <h1 style="margin:0 0 4px;color:var(--pine)">Relatório Consolidado — Acampamento DEX</h1>
-          <p style="margin:0 0 16px;color:var(--deep)">${new Date().toLocaleString()}</p>
-          <table style="border-collapse:collapse;width:100%;margin-top:8px">
-            <thead>
-              <tr style="background:var(--cream)">
-                <th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Tribo</th>
-                <th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Total</th>
-                <th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Comunicador</th>
-                <th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Executor</th>
-                <th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Planejador</th>
-                <th style="padding:6px 8px;border:1px solid #ddd;text-align:left">Analista</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
-          <p style="margin-top:12px;color:var(--deep)"><strong>Total de participantes considerados:</strong> ${total}</p>
-        </div>`;
-        const wrap = document.createElement('div'); wrap.id='dex-consolidado'; wrap.innerHTML = html; document.body.prepend(wrap); window.print(); wrap.remove();
-      }
-
-      return React.createElement("section",null,
-        React.createElement("div",{className:"card"},
-          React.createElement("div",{className:"hd"},"Painel do Líder"),
-          React.createElement("div",{className:"bd"},
-            React.createElement("div",{className:"grid cols-2"},
-              React.createElement("div",{className:"field"},
-                React.createElement("label",null,"Tribo"),
-                React.createElement("select",{value:tribeFilter,onChange:e=>setTribeFilter(e.target.value)},
-                  React.createElement("option",{value:""},"Todas"),
-                  Object.keys(TRIBE_COLORS).map(t=> React.createElement("option",{key:t,value:t},t))
-                )
-              ),
-              React.createElement("div",{className:"field"},
-                React.createElement("label",null,"Perfil predominante"),
-                React.createElement("select",{value:profileFilter,onChange:e=>setProfileFilter(e.target.value)},
-                  React.createElement("option",{value:""},"Todos"),
-                  TRAITS.map(p=> React.createElement("option",{key:p,value:p},p))
-                )
-              ),
-              React.createElement("div",{className:"field",style:{gridColumn:"1/-1"}},
-                React.createElement("label",null,"Buscar por nome/contexto"),
-                React.createElement("input",{value:search,onChange:e=>setSearch(e.target.value),placeholder:"Ex.: Ana, Judá, Liturgia…"})
-              ),
-              React.createElement("div",{className:"row",style:{gridColumn:"1/-1"}},
-                React.createElement("input",{id:"import",type:"file",multiple:true,accept:"application/json",style:{display:"none"},onChange:e=>readFiles(e.target.files)}),
-                React.createElement("button",{className:"btn active",onClick:()=>document.getElementById('import').click()},"Importar JSON"),
-                React.createElement("button",{className:"btn",onClick:exportCSV},"Exportar CSV"),
-                React.createElement("button",{className:"btn",onClick:exportPDF},"Exportar PDF consolidado"),
-                React.createElement("button",{className:"btn ghost",onClick:()=>window.print()},"Imprimir")
-              )
-            )
-          )
-        ),
-        React.createElement("div",{className:"grid cols-2",style:{marginTop:16}},
-          React.createElement("div",{className:"card"},
-            React.createElement("div",{className:"hd"},"Distribuição por tribo e perfil predominante"),
-            React.createElement("div",{className:"bd"},
-              React.createElement(Recharts.ResponsiveContainer,{width:"100%",height:300},
-                React.createElement(Recharts.BarChart,{data:summaryByTribe},
-                  React.createElement(Recharts.CartesianGrid,{strokeDasharray:"3 3"}),
-                  React.createElement(Recharts.XAxis,{dataKey:"tribe"}),
-                  React.createElement(Recharts.YAxis,{allowDecimals:false}),
-                  React.createElement(Recharts.Tooltip,null),
-                  React.createElement(Recharts.Legend,null),
-                  TRAITS.map((p,i)=> React.createElement(Recharts.Bar,{key:p,dataKey:p,stackId:"a",fill:PROFILE_COLORS[i]}))
-                )
-              )
-            )
-          ),
-          React.createElement("div",{className:"card"},
-            React.createElement("div",{className:"hd"},"Perfis predominantes (amostra filtrada)"),
-            React.createElement("div",{className:"bd"},
-              React.createElement(Recharts.ResponsiveContainer,{width:"100%",height:300},
-                React.createElement(Recharts.PieChart,null,
-                  React.createElement(Recharts.Pie,{data:pizzaPerfis,dataKey:"value",nameKey:"name",outerRadius:95,innerRadius:45},
-                    pizzaPerfis.map((d,i)=> React.createElement(Recharts.Cell,{key:i,fill:d.fill}))
-                  ),
-                  React.createElement(Recharts.Tooltip,null),
-                  React.createElement(Recharts.Legend,null)
-                )
-              )
-            )
-          )
-        ),
-        React.createElement("div",{className:"card",style:{marginTop:16}},
-          React.createElement("div",{className:"hd"},"Registros ("+filtered.length+")"),
-          React.createElement("div",{className:"bd",style:{overflowX:"auto"}},
-            React.createElement("table",{className:"table"},
-              React.createElement("thead",null, React.createElement("tr",null,
-                React.createElement("th",null,"Nome"), React.createElement("th",null,"Contexto"), React.createElement("th",null,"Tribo"), React.createElement("th",null,"Perfil"),
-                TRAITS.map(p=> React.createElement("th",{key:p},"% ",p))
-              )),
-              React.createElement("tbody",null,
-                filtered.map(r => React.createElement("tr",{key:r.id},
-                  React.createElement("td",null, r.name || React.createElement("span",{className:"muted"},"(sem nome)")),
-                  React.createElement("td",null, r.context),
-                  React.createElement("td",null,
-                    React.createElement("select",{value:r.tribe||'',onChange:e=>setRows(prev=>prev.map(x=>x.id===r.id?{...x,tribe:e.target.value}:x))},
-                      React.createElement("option",{value:""},"—"),
-                      Object.keys(TRIBE_COLORS).map(t=> React.createElement("option",{key:t,value:t},t))
-                    )
-                  ),
-                  React.createElement("td",null, React.createElement("span",{className:"badge",style:{backgroundColor:"#f1f1f1"}}, r.top)),
-                  TRAITS.map(p=> React.createElement("td",{key:p,style:{fontVariantNumeric:"tabular-nums"}}, (r.percentages?.[p]??0).toFixed(1), "%"))
-                ))
-              )
-            ),
-            filtered.length===0 && React.createElement("p",{className:"muted",style:{textAlign:"center",marginTop:8}},"Nenhum registro ainda. Importe os JSONs gerados no app (botão “Baixar JSON”).")
-          )
-        )
-      );
-    }
-
-    function App(){
-      const [step,setStep] = useState("intro");
-      const [state,setState] = useState(()=>{ try{const raw=localStorage.getItem(STORAGE_KEY); return raw? JSON.parse(raw): {name:"",context:"Acampamento DEX",tribe:"",devotional:false,answers:{}} }catch{return {name:"",context:"Acampamento DEX",tribe:"",devotional:false,answers:{}} }});
-      useEffect(()=>{ try{localStorage.setItem(STORAGE_KEY, JSON.stringify(state));}catch{} }, [state]);
-      useEffect(()=>{ const tabs = document.getElementById('tabs'); ReactDOM.render(React.createElement(Tabs,{step,setStep}), tabs); }, [step]);
-      useEffect(()=>{ window.scrollTo({top:0,behavior:"smooth"}); }, [step]);
-
-      return React.createElement(React.Fragment,null,
-        step==="intro" && React.createElement(Intro,{begin:()=>setStep('form')}),
-        step==="form" && React.createElement(Form,{state,setState,goResult:()=>setStep('result')}),
-        step==="result" && React.createElement(Result,{state,setStep}),
-        step==="sobre" && React.createElement("section",null,
-          React.createElement("div",{className:"card"}, React.createElement("div",{className:"hd"},"Sobre este instrumento"), React.createElement("div",{className:"bd"},
-            React.createElement("p",null,"Leitura simples das tendências comportamentais. Não define quem você é; ilumina caminhos de crescimento a serviço da missão."),
-            React.createElement("h4",null,"Privacidade"),
-            React.createElement("p",null,"As respostas ficam salvas apenas no seu navegador (localStorage). Você pode limpar os dados a qualquer momento.")
-          ))
-        ),
-        step==="lider" && React.createElement(LeaderPanel,null)
-      );
-    }
-
-    ReactDOM.render(React.createElement(App), document.getElementById('app'));
-  </script>
-</body>
-</html>
+  return ContentService.createTextOutput(
+    JSON.stringify(out)
+  ).setMimeType(ContentService.MimeType.JSON);
+}
