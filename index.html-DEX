@@ -1,0 +1,76 @@
+const SHEET_ID  = 'COLE_AQUI_O_ID_DA_SUA_PLANILHA';
+const SHEET_NAME = 'respostas';
+
+function ensureHeader_(sh) {
+  if (sh.getLastRow() === 0) {
+    sh.appendRow([
+      'timestamp','name','context','tribe','devotional','top',
+      'perc_Comunicador','perc_Executor','perc_Planejador','perc_Analista',
+      'answers_json','generatedAt'
+    ]);
+  }
+}
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents || '{}');
+    const ss = SpreadsheetApp.openById(SHEET_ID);
+    const sh = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
+    ensureHeader_(sh);
+
+    const p = data.percentages || {};
+    sh.appendRow([
+      new Date(),
+      data.name || '',
+      data.context || '',
+      data.tribe || '',
+      data.devotional ? '1' : '0',
+      data.top || '',
+      Number(p.Comunicador) || 0,
+      Number(p.Executor) || 0,
+      Number(p.Planejador) || 0,
+      Number(p.Analista) || 0,
+      JSON.stringify(data.answers || {}),
+      data.generatedAt || new Date().toISOString()
+    ]);
+
+    return ContentService.createTextOutput(
+      JSON.stringify({ ok: true })
+    ).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(
+      JSON.stringify({ ok: false, error: String(err) })
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sh = ss.getSheetByName(SHEET_NAME);
+  if (!sh) {
+    return ContentService.createTextOutput('[]')
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  const values = sh.getDataRange().getValues();
+  const header = values.shift(); // remove cabeçalho
+  const idx = Object.fromEntries(header.map((h,i)=>[h,i]));
+  const out = values.map(r => ({
+    timestamp: r[idx.timestamp] ? new Date(r[idx.timestamp]).toISOString() : '',
+    name: r[idx.name] || '',
+    context: r[idx.context] || '',
+    tribe: r[idx.tribe] || '',
+    devotional: r[idx.devotional] === '1',
+    top: r[idx.top] || '',
+    perc_Comunicador: Number(r[idx.perc_Comunicador]) || 0,
+    perc_Executor: Number(r[idx.perc_Executor]) || 0,
+    perc_Planejador: Number(r[idx.perc_Planejador]) || 0,
+    perc_Analista: Number(r[idx.perc_Analista]) || 0,
+    answers_json: r[idx.answers_json] || '',
+    generatedAt: r[idx.generatedAt] || ''
+  }));
+
+  return ContentService.createTextOutput(
+    JSON.stringify(out)
+  ).setMimeType(ContentService.MimeType.JSON);
+}
